@@ -56,10 +56,9 @@ class HieroShotgridTags(Application):
         hiero_project_tags = hiero.core.findProjectTags()
         hiero_project_tags = self._filter_hiero_tags(hiero_project_tags)
 
-        # query sg for all the tags in this project
-        filters = [["project", "is", context.project]]
-        fields = ["id", "code"]
-        sg_project_tags = tk.shotgun.find('CustomEntity05', filters=filters, fields=fields)
+        # retrieve project tags for the current project
+        sg_project_tags = self._query_sg_project_tags()
+
 
         # Build list of missing shotgun project tags
         hiero_only_tags = []
@@ -127,10 +126,8 @@ class HieroShotgridTags(Application):
         fields = ["code", "sg_project_tags", "sg_sequence"]
         sg_shots = tk.shotgun.find('Shot', filters=filters, fields=fields)
 
-        # query sg for all the tags in this project
-        filters = [["project", "is", context.project]]
-        fields = ["id", "code"]
-        sg_project_tags = tk.shotgun.find('CustomEntity05', filters=filters, fields=fields)
+        # retrieve project tags for the current project
+        sg_project_tags = self._query_sg_project_tags()
 
 
         for track_item in track_items:
@@ -177,23 +174,8 @@ class HieroShotgridTags(Application):
                     # first need to remove all tags from that shot in shotgun
                     tk.shotgun.update(target_sg_shot["type"], target_sg_shot["id"], {"sg_project_tags" : []})
                     self.log_debug("Overwrite asked: Clearing existing tags on SG shot %s" % target_sg_shot["code"])
-        
 
-                target_sg_tags = [] #empty list of shotgun project tags
-
-                for hiero_item_tag in hiero_item_tags:
-                    target_sg_tag = None
-                    for sg_project_tag in sg_project_tags:
-                        if hiero_item_tag.name() == sg_project_tag["code"]:
-                            target_sg_tag = sg_project_tag
-
-                    if not target_sg_tag: # that hiero tag doesn't have a corresponding Shotgun project tag, need to create it
-                        data = { "project": context.project, "code": hiero_item_tag.name() }
-                        target_sg_tag = tk.shotgun.create("CustomEntity05", data)
-                        self.log_debug("Hiero tag %s has no equivalent in the SG project tags. Created new SG project tag %s" % (hiero_item_tag.name(), target_sg_tag["code"])  )
-
-                    # now we have a corresponding shotgun tag, append it to a list of tags
-                    target_sg_tags.append(target_sg_tag)
+                target_sg_tags = self._find_and_create_matching_sg_tags(hiero_item_tags, sg_project_tags)
 
                 # Update the sg shot to add all the tags to it in one go.
                 tk.shotgun.update(target_sg_shot["type"],
@@ -270,7 +252,76 @@ class HieroShotgridTags(Application):
                 continue
             if "Nuke Project File" in tag.name():
                 continue
+            if "Copy" in tag.name():
+                continue
+
             filtered_tags.append(tag)
 
         return filtered_tags        
+
+
+    def _query_sg_project_tags(self):
+
+        tk = self.sgtk
+        context = self.context
+
+        # query sg for all the tags in this project
+        filters = [["project", "is", context.project]]
+        fields = ["id", "code"]
+        sg_project_tags = tk.shotgun.find('CustomEntity05', filters=filters, fields=fields)
+
+        return sg_project_tags
+
+
+    def _find_and_create_matching_sg_tags(self, hiero_item_tags, sg_project_tags):
+        """
+        From a list of Hiero tags, find the matching SG tags, create SG tags if no match exist
+        Returns a list of dicts of matching SG tags
+        """
+        tk = self.sgtk
+        context = self.context
+
+
+        target_sg_tags = [] #empty list of shotgun project tags
+
+        for hiero_item_tag in hiero_item_tags:
+            target_sg_tag = None
+            for sg_project_tag in sg_project_tags:
+                if hiero_item_tag.name() == sg_project_tag["code"]:
+                    target_sg_tag = sg_project_tag
+
+            if not target_sg_tag: # that hiero tag doesn't have a corresponding Shotgun project tag, need to create it
+                data = { "project": context.project, "code": hiero_item_tag.name() }
+                target_sg_tag = tk.shotgun.create("CustomEntity05", data)
+                self.log_debug("Hiero tag %s has no equivalent in the SG project tags. Created new SG project tag %s" % (hiero_item_tag.name(), target_sg_tag["code"])  )
+
+            # now we have a corresponding shotgun tag, append it to a list of tags
+            target_sg_tags.append(target_sg_tag)
+
+
+        return target_sg_tags
+
+
+
+
+    def get_sg_tags(self, track_item):
+        '''
+        From a track item tags, create or find matching SG tags
+        Input : track item
+        Return list of dict of SG project tags (creates new SG tags if necessary)
+        '''
+
+
+        # retrieve project tags for the current project
+        sg_project_tags = self._query_sg_project_tags()
+
+        hiero_item_tags = self._filter_hiero_tags(track_item.tags())
+
+        target_sg_tags = self._find_and_create_matching_sg_tags(hiero_item_tags, sg_project_tags)
+
+        return target_sg_tags
+
+
+
+
 
