@@ -33,6 +33,7 @@ class HieroShotgridTags(Application):
         self.engine.register_command("Pull tags from SG (add)", self.tags_pull_add, {"icon": os.path.join(os.path.dirname(__file__), 'icon_pull_256.png')} )
         self.engine.register_command("Pull tags from SG (overwrite)", self.tags_pull_overwrite, {"icon": os.path.join(os.path.dirname(__file__), 'icon_pull_256.png')})
 
+        self.tags_to_ignore = self.get_setting("tags_to_ignore")
 
     @property
     def context_change_allowed(self):
@@ -246,16 +247,16 @@ class HieroShotgridTags(Application):
         filtered_tags = []
 
         for tag in tags:
-            if "shotguntype" in tag.name():
-                continue
-            if "Transcode" in tag.name():
-                continue
-            if "Nuke Project File" in tag.name():
-                continue
-            if "Copy" in tag.name():
+
+            if tag.name() == '': #some tags are without any name
                 continue
 
-            filtered_tags.append(tag)
+            for tag_to_ignore in self.tags_to_ignore:
+                if tag_to_ignore in tag.name():
+                    break
+            else:
+                filtered_tags.append(tag)
+
 
         return filtered_tags        
 
@@ -314,8 +315,10 @@ class HieroShotgridTags(Application):
 
         # retrieve project tags for the current project
         sg_project_tags = self._query_sg_project_tags()
+        self.log_debug("sg project tags found:%s" % sg_project_tags)
 
         hiero_item_tags = self._filter_hiero_tags(track_item.tags())
+        self.log_debug("Filtered Hiero tags: %s" % hiero_item_tags)
 
         target_sg_tags = self._find_and_create_matching_sg_tags(hiero_item_tags, sg_project_tags)
 

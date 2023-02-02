@@ -1,6 +1,18 @@
 # expected fields in the configuration file for this app
 configuration:
 
+  tags_to_ignore:
+      type: list
+      description: "List of partial tag names that should be ignored when 
+                    considering syncing between Hiero and ShotGrid.
+                    For instance, should ignore auto generated tags from 
+                    like 'Transcode', and should ignore tags that are used
+                    to designate type of plate"
+      allows_empty: True
+      values:
+        type: str
+      default_value: ['shotguntype', 'Transcode', 'Nuke Project File', 'Copy']
+
 # the engines that this app can operate in:
 supported_engines: [tk-hiero, tk-nuke]
 
