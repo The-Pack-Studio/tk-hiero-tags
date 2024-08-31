@@ -124,7 +124,7 @@ class HieroShotgridTags(Application):
 
         # query sg for all the shots of this project
         filters = [["project", "is", context.project]]
-        fields = ["code", "sg_project_tags", "sg_sequence"]
+        fields = ["code", "sg_project_tags", "sg_sequence", "sg_sequence.Sequence.episode"]
         sg_shots = tk.shotgun.find('Shot', filters=filters, fields=fields)
 
         # retrieve project tags for the current project
@@ -137,18 +137,26 @@ class HieroShotgridTags(Application):
             track_item_name = track_item.name()
             shotname_parts = track_item_name.split("_") # if no underscore, will return whole name
 
-            if len(shotname_parts) != 2:
-                self.log_error("Trackitem '%s' is not composed of two parts separated by an underscore. Can't find shot name." % track_item_name)
-                # should append this to a list of errors and diplay it after the loop is finished ?
+            if len(shotname_parts) != 3:
+                self.log_error("Track item: '{}' is not correctly named. It needs to be in three parts separated by underscores".format(track_item_name))
+                # should append this to a list of errors and display it after the loop is finished ?
                 # QtGui.QMessageBox.critical(None, "Shot Lookup Error!", "Trackitem '%s' is not composed of two parts separated by an underscore. Can't find shot name." % track_item_name)
                 continue
 
-            sequence_name = shotname_parts[0]
-            shot_name = shotname_parts[1]
+            episode_name = shotname_parts[0]
+            sequence_name = shotname_parts[1]
+            shot_name = shotname_parts[2]
+
+            if episode_name == "" or sequence_name == "" or shot_name == "":
+                self.log_error("Track item: '{}' is not correctly named. It needs to be in three parts separated by underscores".format(track_item_name))
+
 
             target_sg_shot =  None
             for sg_shot in sg_shots:
-                if sg_shot["code"] == shot_name and sg_shot["sg_sequence"]["name"] == sequence_name:
+                if (sg_shot.get("code") == shot_name and
+                    sg_shot.get("sg_sequence", {}).get("name") == sequence_name and
+                    sg_shot.get("sg_sequence.Sequence.episode", {}).get("name") == episode_name):
+
                     target_sg_shot = sg_shot
                     break
 
