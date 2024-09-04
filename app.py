@@ -144,8 +144,8 @@ class HieroShotgridTags(Application):
                 continue
 
             episode_name = shotname_parts[0]
-            sequence_name = shotname_parts[1]
-            shot_name = shotname_parts[2]
+            sequence_name = "{}-{}".format(shotname_parts[0], shotname_parts[1])
+            shot_name = "{}-{}-{}".format(shotname_parts[0], shotname_parts[1], shotname_parts[2])
 
             if episode_name == "" or sequence_name == "" or shot_name == "":
                 self.log_error("Track item: '{}' is not correctly named. It needs to be in three parts separated by underscores".format(track_item_name))
